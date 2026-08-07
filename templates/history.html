@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ANPR History</title>
+
+    <style>
+        body{
+            margin:0;
+            font-family:Arial;
+            background:#eef2f7;
+        }
+
+        /* NAVBAR (same as Settings page) */
+        .navbar{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            background:#111827;
+            padding:15px 25px;
+            color:white;
+            position:fixed;
+            top:0;
+            left:0;
+            right:0;
+            z-index:1000;
+        }
+
+        .logo{
+            font-size:20px;
+            font-weight:bold;
+        }
+
+        .nav-links a{
+            color:white;
+            text-decoration:none;
+            margin-left:10px;
+            padding:8px 12px;
+            border-radius:6px;
+            background:#1f2937;
+        }
+
+        .nav-links a:hover{
+            background:#374151;
+        }
+
+        /* MAIN */
+        .main{
+            padding:90px 20px 20px 20px;
+        }
+
+        .card{
+            background:white;
+            padding:20px;
+            margin-bottom:20px;
+            border-radius:10px;
+            box-shadow:0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        /* TABLE STYLE */
+        table{
+            width:100%;
+            border-collapse:collapse;
+        }
+
+        th{
+            background:#111827;
+            color:white;
+            padding:12px;
+        }
+
+        td{
+            padding:12px;
+            text-align:center;
+            border-bottom:1px solid #ddd;
+        }
+
+        .plate{
+            font-weight:bold;
+            color:#2563eb;
+        }
+
+        img{
+            width:80px;
+            border-radius:6px;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<div class="navbar">
+    <div class="logo">🚘 ANPR System</div>
+
+    <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/history">History</a>
+        <a href="/settings">Settings</a>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+    <div class="card">
+        <h2> Plate Detection History</h2>
+        <p>All number plate detections</p>
+    </div>
+
+    <div class="card">
+
+        <table>
+            <tr>
+                <th>Plate</th>
+                <th>Event</th>
+                <th>Time</th>
+                <th>Gate</th>
+                <th>Image</th>
+            </tr>
+
+            {% for h in history %}
+            <tr>
+                <td class="plate">{{ h.license_plate }}</td>
+                <td>{{ h.event_type }}</td>
+                <td>{{ h.timestamp }}</td>
+                <td>{{ h.gate_number }}</td>
+               <td>
+    {% if h.picture_path %}
+        <img src="{{ url_for('static', filename='plates/' + h.picture_path.split('/')[-1]) }}"
+             style="max-width:100px; cursor:pointer;"
+             onclick="openImage(this.src)">
+    {% endif %}
+</td>
+
+<!-- Modal -->
+<div id="imgModal" style="
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.9);
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+">
+
+    <span onclick="closeImage()" style="
+        position:absolute;
+        top:15px;
+        right:25px;
+        color:white;
+        font-size:35px;
+        cursor:pointer;
+    ">&times;</span>
+
+    <img id="modalImg" style="
+    max-width:95vw;
+    max-height:95vh;
+    width:600px;
+    object-fit:contain;
+    box-shadow:0 0 20px black;
+    border-radius:5px;
+">
+</div>
+
+<script>
+function openImage(src) {
+    const modal = document.getElementById('imgModal');
+    const img = document.getElementById('modalImg');
+
+    img.src = src;
+    modal.style.display = 'flex';   // IMPORTANT: use flex for centering
+}
+
+// Close modal
+function closeImage() {
+    document.getElementById('imgModal').style.display = 'none';
+}
+
+// ESC key support
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+        closeImage();
+    }
+});
+
+// Optional: click outside image to close
+document.getElementById('imgModal').addEventListener('click', function(e) {
+    if (e.target.id === 'imgModal') {
+        closeImage();
+    }
+});
+</script>
+            </tr>
+            {% endfor %}
+
+        </table>
+
+    </div>
+
+</div>
+
+</body>
+</html>

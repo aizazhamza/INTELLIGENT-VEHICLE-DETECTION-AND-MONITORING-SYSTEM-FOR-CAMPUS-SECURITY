@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ANPR System</title>
+
+    <style>
+
+        body{
+            margin:0;
+            font-family:Arial;
+            background:#eef2f7;
+        }
+
+        /* ================= NAVBAR ================= */
+        .navbar{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            background:#111827;
+            padding:15px 25px;
+            color:white;
+            position:fixed;
+            top:0;
+            left:0;
+            right:0;
+            z-index:1000;
+        }
+
+        .logo{
+            font-size:20px;
+            font-weight:bold;
+        }
+
+        .nav-links a{
+            color:white;
+            text-decoration:none;
+            margin-left:10px;
+            padding:8px 12px;
+            border-radius:6px;
+            background:#1f2937;
+        }
+
+        .nav-links a:hover{
+            background:#374151;
+        }
+
+        /* ================= SIDEBAR ================= */
+        .sidebar{
+            width:220px;
+            height:100vh;
+            background:#111827;
+            position:fixed;
+            top:60px;
+            left:0;
+            padding:20px;
+        }
+
+        .sidebar a{
+            display:block;
+            color:white;
+            text-decoration:none;
+            margin:10px 0;
+            padding:10px;
+            background:#1f2937;
+            border-radius:8px;
+            text-align:center;
+        }
+
+        .sidebar a:hover{
+            background:#374151;
+        }
+
+        /* ================= MAIN CONTENT ================= */
+        .main{
+            margin-left:240px;
+            padding:80px 20px 20px 20px;
+        }
+
+        .card{
+            background:white;
+            padding:20px;
+            margin-bottom:20px;
+            border-radius:10px;
+            box-shadow:0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        button{
+            background:#2563eb;
+            color:white;
+            border:none;
+            padding:10px 20px;
+            border-radius:8px;
+            cursor:pointer;
+            margin-left:10px;
+        }
+
+        button:hover{
+            background:#1d4ed8;
+        }
+
+        input[type=file]{
+            padding:8px;
+        }
+
+        .plate-table{
+            width:100%;
+            border-collapse:collapse;
+        }
+
+        .plate-table th{
+            background:#111827;
+            color:white;
+        }
+
+        .plate-table th,
+        .plate-table td{
+            border:1px solid #ddd;
+            padding:12px;
+            text-align:center;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<!-- ================= NAVBAR ================= -->
+<div class="navbar">
+
+    <div class="logo">
+        🚘 ANPR System
+    </div>
+
+    <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/history">History</a>
+        <a href="/settings">Settings</a>
+    </div>
+
+</div>
+<!-- ================= MAIN ================= -->
+<div class="main">
+
+    <div class="card">
+        <h2>🚘 Automatic Number Plate Recognition</h2>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="card">
+
+        <h3>🎥 Upload Video for Detection</h3>
+
+        <form action="/upload_video"
+              method="POST"
+              enctype="multipart/form-data">
+
+            <input type="file"
+                   name="video"
+                   accept="video/*"
+                   required>
+
+            <button type="submit">Upload & Detect</button>
+
+        </form>
+
+    </div>
+
+    <!-- LIVE CAMERA -->
+    <div class="card">
+
+    <h3>📡 Live CCTV Feed</h3>
+
+    {% if settings.live_feed %}
+
+        <img src="/video"
+             style="width:100%; border-radius:12px;">
+
+    {% else %}
+
+        <div style="
+            padding:40px;
+            text-align:center;
+            background:#f3f4f6;
+            border-radius:12px;
+            font-size:20px;
+        ">
+            CCTV Feed Disabled
+        </div>
+
+    {% endif %}
+
+</div>
+
+    <!-- DETECTIONS -->
+    <div class="card">
+
+        <h3>🚗 Detected Plates</h3>
+
+        <table class="plate-table">
+
+            <tr>
+                <th>Image</th>
+                <th>Plate</th>
+                <th>Event</th>
+                <th>Gate</th>
+            </tr>
+
+            {% for p in plates %}
+            <tr>
+                <td>
+    <img src="{{ url_for('static', filename='plates/' + p.image.split('/')[-1]) }}"
+         width="100"
+         onclick="openImage(this.src)"
+         style="cursor:pointer;">
+</td>
+<!-- IMAGE MODAL -->
+<div id="imgModal" style="
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.9);
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+">
+
+    <span onclick="closeImage()" style="
+        position:absolute;
+        top:15px;
+        right:25px;
+        color:white;
+        font-size:35px;
+        cursor:pointer;
+    ">&times;</span>
+
+    <img id="modalImg" style="
+        max-width:95vw;
+        max-height:95vh;
+        width:700px;
+        object-fit:contain;
+        border-radius:6px;
+        box-shadow:0 0 20px black;
+    ">
+</div>
+<script>
+function openImage(src) {
+    document.getElementById('imgModal').style.display = 'flex';
+    document.getElementById('modalImg').src = src;
+}
+
+function closeImage() {
+    document.getElementById('imgModal').style.display = 'none';
+}
+
+// ESC key closes image
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+        closeImage();
+    }
+});
+
+// click outside image closes modal
+document.getElementById('imgModal').addEventListener('click', function(e) {
+    if (e.target.id === 'imgModal') {
+        closeImage();
+    }
+});
+</script>
+                <td>{{ p.plate }}</td>
+                <td>{{ p.event }}</td>
+                <td>{{ p.gate }}</td>
+            </tr>
+            {% endfor %}
+
+        </table>
+
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ANPR Dashboard</title>
+
+    <style>
+        body{
+            margin:0;
+            font-family:Arial;
+            background:#eef2f7;
+        }
+
+        /* NAVBAR */
+        .navbar{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            background:#111827;
+            padding:15px 25px;
+            color:white;
+            position:fixed;
+            top:0;
+            left:0;
+            right:0;
+            z-index:1000;
+        }
+
+        .logo{
+            font-size:20px;
+            font-weight:bold;
+        }
+
+        .nav-links a{
+            color:white;
+            text-decoration:none;
+            margin-left:10px;
+            padding:8px 12px;
+            border-radius:6px;
+            background:#1f2937;
+        }
+
+        .nav-links a:hover{
+            background:#374151;
+        }
+
+        /* MAIN */
+        .main{
+            padding:90px 20px 20px 20px;
+        }
+
+        .card{
+            background:white;
+            padding:20px;
+            margin-bottom:20px;
+            border-radius:10px;
+            box-shadow:0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        /* STATS */
+        .stats{
+            display:grid;
+            grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+            gap:15px;
+            margin-top:15px;
+        }
+
+        .stat-box{
+            background:#111827;
+            color:white;
+            padding:20px;
+            border-radius:10px;
+            text-align:center;
+            transition:0.2s;
+        }
+
+        .stat-box:hover{
+            transform:translateY(-3px);
+        }
+
+        .stat-box b{
+            display:block;
+            margin-top:10px;
+            font-size:24px;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<div class="navbar">
+    <div class="logo">🚘 ANPR System</div>
+
+    <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/history">History</a>
+        <a href="/settings">Settings</a>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+    <div class="card">
+        <h1>📊 ANPR Dashboard</h1>
+        <p>System performance and detection summary</p>
+    </div>
+
+    <div class="card">
+        <h2>System Statistics</h2>
+
+        <div class="stats">
+
+            <div class="stat-box">
+                 Total Vehicles Detected
+                <b>{{ total_detections }}</b>
+            </div>
+
+            <div class="stat-box">
+                📡 Live Detections Today
+                <b>{{ today_detections }}</b>
+            </div>
+
+            <div class="stat-box">
+                📷 Active Cameras
+                <b>2</b>
+            </div>
+
+            <div class="stat-box">
+                ⚙ System Status
+                <b>Running</b>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

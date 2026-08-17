@@ -27,70 +27,255 @@ def clean_plate(text):
 def is_blurry(img):
     return cv2.Laplacian(img, cv2.CV_64F).var() < 60
 
+def is_blurry(img):
+    return cv2.Laplacian(img, cv2.CV_64F).var() < 60
+
+
+def sharpness_score(img):
+    if img is None or img.size == 0:
+        return 0
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    return cv2.Laplacian(
+        gray,
+        cv2.CV_64F
+    ).var()
+
 
 def is_valid_plate(text):
-    return bool(text) and 5 <= len(text) <= 12
+    """
+    Basic ANPR plate validation.
+
+    Rejects:
+    - Empty text
+    - Very short OCR results
+    - Text containing no digits
+    - Text containing no letters
+
+    Accepts different Pakistani plate formats
+    without forcing one exact format.
+    """
+
+    if not text:
+        return False
+
+    text = clean_plate(text)
+
+    # Reasonable length
+    if not 6 <= len(text) <= 12:
+        return False
+
+    # Must contain at least one letter
+    if not any(c.isalpha() for c in text):
+        return False
+
+    # Must contain at least one number
+    if not any(c.isdigit() for c in text):
+        return False
+
+    return True
 
 
 # =========================
 # OCR
 # =========================
 def recognize_plate_easyocr(crop):
+    """
+    Improved EasyOCR for ANPR.
+
+    Strategy:
+    1. Resize the plate.
+    2. Create multiple preprocessing versions.
+    3. Run EasyOCR on each version.
+    4. Collect valid OCR results.
+    5. Use confidence + frequency to select the best result.
+    """
 
     if crop is None or crop.size == 0:
         return ""
 
-    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-    gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
-    gray = cv2.convertScaleAbs(gray, alpha=1.8, beta=25)
-    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+    try:
+        # --------------------------------------------------
+        # 1. Resize original plate
+        # --------------------------------------------------
+        resized = cv2.resize(
+            crop,
+            None,
+            fx=4,
+            fy=4,
+            interpolation=cv2.INTER_CUBIC
+        )
 
-    thresh = cv2.adaptiveThreshold(
-        gray, 255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY,
-        31, 5
-    )
+        # --------------------------------------------------
+        # 2. Grayscale
+        # --------------------------------------------------
+        gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 
-    results = reader.readtext(thresh, detail=1, paragraph=False)
+        # --------------------------------------------------
+        # 3. Contrast enhancement
+        # --------------------------------------------------
+        enhanced = cv2.convertScaleAbs(
+            gray,
+            alpha=1.8,
+            beta=25
+        )
 
-    def _extract_text_conf(item):
-        if isinstance(item, dict):
-            text = item.get("text", "")
-            conf = item.get("confidence", item.get("conf", 0))
-            return text, conf
-        if isinstance(item, (list, tuple)) and len(item) >= 3:
-            return item[1], item[2]
-        return "", 0
+        # --------------------------------------------------
+        # 4. CLAHE
+        # --------------------------------------------------
+        clahe = cv2.createCLAHE(
+            clipLimit=2.0,
+            tileGridSize=(8, 8)
+        )
 
-    candidates = []
+        clahe_img = clahe.apply(enhanced)
 
-    for item in results:
-        text, conf = _extract_text_conf(item)
-        try:
-            conf = float(conf)
-        except (TypeError, ValueError):
-            continue
+        # --------------------------------------------------
+        # 5. Light blur
+        # --------------------------------------------------
+        blurred = cv2.GaussianBlur(
+            clahe_img,
+            (3, 3),
+            0
+        )
 
-        if conf < 0.05:
-            continue
+        # --------------------------------------------------
+        # 6. Adaptive threshold
+        # --------------------------------------------------
+        thresh = cv2.adaptiveThreshold(
+            blurred,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            31,
+            5
+        )
 
-        cleaned = clean_plate(str(text))
+        # --------------------------------------------------
+        # Create multiple OCR inputs
+        # --------------------------------------------------
+        ocr_images = [
+            resized,
+            gray,
+            clahe_img,
+            thresh
+        ]
 
-        if is_valid_plate(cleaned):
-            candidates.append((cleaned, conf))
+        candidates = []
 
-    if candidates:
-        return max(candidates, key=lambda x: x[1])[0]
+        # --------------------------------------------------
+        # 7. Run OCR on every version
+        # --------------------------------------------------
+        for img in ocr_images:
 
-    if results:
-        first_text, _ = _extract_text_conf(results[0])
-        return clean_plate(str(first_text))
+            results = reader.readtext(
+                img,
+                detail=1,
+                paragraph=False,
+                allowlist="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
+            )
 
-    return ""
+            for item in results:
 
+                text = ""
+                conf = 0.0
 
-# =========================
+                if isinstance(item, dict):
+
+                    text = item.get("text", "")
+
+                    conf = item.get(
+                        "confidence",
+                        item.get("conf", 0)
+                    )
+
+                elif isinstance(item, (list, tuple)):
+
+                    if len(item) >= 3:
+                        text = item[1]
+                        conf = item[2]
+
+                try:
+                    conf = float(conf)
+                except (TypeError, ValueError):
+                    continue
+
+                # Ignore extremely weak OCR results
+                if conf < 0.20:
+                    continue
+
+                cleaned = clean_plate(str(text))
+
+                if not cleaned:
+                    continue
+
+                if is_valid_plate(cleaned):
+
+                    candidates.append(
+                        (cleaned, conf)
+                    )
+
+        # --------------------------------------------------
+        # 8. No valid OCR result
+        # --------------------------------------------------
+        if not candidates:
+            return ""
+
+        # --------------------------------------------------
+        # 9. Voting
+        # --------------------------------------------------
+        votes = {}
+
+        for text, conf in candidates:
+
+            if text not in votes:
+                votes[text] = {
+                    "count": 0,
+                    "confidence": 0.0
+                }
+
+            votes[text]["count"] += 1
+            votes[text]["confidence"] += conf
+
+        # --------------------------------------------------
+        # 10. Select strongest candidate
+        #
+        # Priority:
+        #       1. Number of votes
+        #       2. Average confidence
+        # --------------------------------------------------
+        best_text = None
+        best_score = None
+
+        for text, data in votes.items():
+
+            count = data["count"]
+
+            avg_conf = (
+                data["confidence"] / count
+            )
+
+            score = (
+                count * 0.7
+                +
+                avg_conf * 0.3
+            )
+
+            if best_score is None or score > best_score:
+
+                best_score = score
+                best_text = text
+
+        return best_text if best_text else ""
+
+    except Exception as e:
+
+        print(
+            f"[OCR ERROR] {e}"
+        )
+
+        return ""# =========================
 # CORE PIPELINE
 # =========================
 def process_camera_stream(frame, gate, tracks, last_saved,
@@ -332,12 +517,12 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source1", default="0")
     parser.add_argument("--gate", type=int, default=1)
-    parser.add_argument("--model", default="best.pt")
+    parser.add_argument("--model", default="yolo_8.pt")
     parser.add_argument("--conf", type=float, default=0.4)
     parser.add_argument("--assoc", type=float, default=0.3)
     parser.add_argument("--max_age", type=int, default=80)
-    parser.add_argument("--hits", type=int, default=1)
-    parser.add_argument("--cooldown", type=float, default=6.0)
+    parser.add_argument("--hits", type=int, default=3)
+    parser.add_argument("--cooldown", type=float, default=60.0)
     return parser.parse_args()
 
 

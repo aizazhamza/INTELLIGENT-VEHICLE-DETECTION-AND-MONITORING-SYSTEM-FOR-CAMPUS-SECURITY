@@ -142,7 +142,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="best.pt")
+    parser.add_argument("--model", default="yolo_11.pt")
     parser.add_argument("--source", default="0")
     parser.add_argument("--conf", type=float, default=0.35)
 
